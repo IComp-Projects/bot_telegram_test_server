@@ -31,3 +31,10 @@ class PollUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
 
+class Group(models.Model):
+    chat_id = models.BigIntegerField(unique=True)    
+    fetch_date = models.DateTimeField(auto_now_add=True)
+    title = models.CharField(max_length=255)
+    photo_url = models.URLField(max_length=255, null=True, blank=True)
+    description = models.CharField(max_length=255, null=True, blank=True)
+

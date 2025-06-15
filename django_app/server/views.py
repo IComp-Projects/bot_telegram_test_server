@@ -3,11 +3,11 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.hashers import check_password
-from .models import PollUser
+from .models import PollUser, Group
 from .serializers import RegisterSerializer, LoginSerializer, SendPollSerializer
 import requests
 import os
-
+from datetime import datetime
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
@@ -36,28 +36,55 @@ class TelegramWebhookView(APIView):
         update = request.data
         print("", update)
         message = update.get("message", {})
+        fetch_date = message.get('date') 
         text = message.get("text", "")
-        chat_id = message.get("chat", {}).get("id")
-
-        if text == "/start":
-            requests.post(f"{TELEGRAM_API}/sendMessage", json={
-                "chat_id": chat_id,
-                "text": "Vamos começar 🖥️\nUse o botão abaixo para criar uma enquete!",
-                "reply_markup": {
-                    "inline_keyboard": [
-                        [
-                            {
-                                "text": "Criar enquete",
-                                "web_app": {"url": "https://poll-miniapp.vercel.app/"}
-                            }
+        chat = message.get("chat", {})        
+        chat_id = chat.get("id")
+        
+        match text:
+            case "/start":
+                requests.post(f"{TELEGRAM_API}/sendMessage", json={
+                    "chat_id": chat_id,
+                    "text": "Vamos começar 🖥️\nUse o botão abaixo para criar uma enquete!",
+                    "reply_markup": {
+                        "inline_keyboard": [
+                            [
+                                {
+                                    "text": "Criar enquete",
+                                    "web_app": {"url": "https://poll-miniapp.vercel.app/"}
+                                }
+                            ]
                         ]
-                    ]
-                }
-            })
+                    }
+                })
+
+            case "/bind":
+                if (chat_type := chat.get('type')) and chat_type != 'group':
+                    return Response({"status": 'bad request'}) 
+
+                chat_title = chat.get("title")
+                chat_description = None
+
+                if opt_chat_description := chat.get('description'):
+                    chat_description = opt_chat_description
+
+                chat_photo_url = None
+                if opt_chat_photo := chat.get("photo"):
+                    if photo_id := opt_chat_photo.get('big_file_id'):
+                        if (response := requests.get(f'{TELEGRAM_API}/getFile', params={'file_id': photo_id})) and response.status_code == 200:
+                            if (json_response := response.json()) and json_response.get('ok'):
+                                file_path = json_response.get('result').get('file_path')
+                                chat_photo_url = f'{TELEGRAM_API}/{file_path}'
+
+                group, _ = Group.objects.get_or_create(chat_id=chat_id)
+                group.fetch_date = datetime.fromtimestamp(fetch_date)
+                group.title = chat_title
+                group.description = chat_description
+                group.photo_url = chat_photo_url
+                group.save()
 
         return Response({"status": "ok"})
-
-
+    
 class RegisterView(APIView):
     @swagger_auto_schema(
         operation_description="Cria um novo usuário professor.",
@@ -285,3 +312,5 @@ class SendQuizView(APIView):
                 "message": "Erro de conexão com o Telegram.",
                 "errors": {"exception": str(e)}
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
