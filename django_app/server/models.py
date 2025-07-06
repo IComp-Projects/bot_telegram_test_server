@@ -19,7 +19,6 @@ class PollUserManager(BaseUserManager):
 class PollUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     register = models.CharField(max_length=100, unique=True, null=True, blank=True)
-    telegram_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
     is_professor = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
