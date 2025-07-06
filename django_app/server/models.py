@@ -14,7 +14,7 @@ class PollUserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
-        return self.create_user(email=email, password=password, **extra_fields)
+        return self.create_user(email, password, **extra_fields)
 
 class PollUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
